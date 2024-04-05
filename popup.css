@@ -1,0 +1,54 @@
+body {
+    background-color: black;
+    color: white;
+    min-width: 300px;
+}
+
+.title {
+    height: 40px;
+    vertical-align: top;
+    margin-right: 4px;
+}
+
+.disclaimer {
+    color: gray;
+    font-style: italic;
+    font-size: smaller;
+    margin-top: 4px;
+}
+
+.error {
+    color: red;
+}
+
+a {
+    color: lightblue;
+}
+
+.chatSize {
+    font-size: x-small;
+}
+
+#chatmain {
+    text-align: center;
+    font-size: medium;
+}
+
+.downloads {
+    margin-top: 6px;
+}
+
+.downloadButton {
+    background-color: blueviolet;
+    color: white;
+}
+
+.floatRight {
+    float: right;
+}
+
+.deleteButton {
+    margin-top: 6px;
+    background-color: firebrick;
+    color: white;
+}

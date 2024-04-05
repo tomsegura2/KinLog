@@ -1,0 +1,45 @@
+<html>
+  <head>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <img class="title" src="images/title.png" alt="KinLog" /><span id="version"></span>
+    <hr />
+
+    <div id="chatmain">
+
+      <span id="currentchat"></span> <span class="chatSize">(<span id="currentchatSize"></span>)</span>
+
+      <div id="buttons">
+
+        <div class="downloads">
+          <button id="textDownload" class="downloadButton">Text</button> 
+          <button id="htmlDownload" class="downloadButton">HTML</button> 
+          <button id="jsonDownload" class="downloadButton">JSON</button>
+        </div>
+
+        <div>
+          <button id="delete" class="deleteButton"></button> 
+        </div>
+
+    </div>
+
+      <hr />
+    </div>
+
+    <div id="noresponse" style="display: none;" class="error">
+      No response from Kindroid. Please refresh the page.
+      <hr />
+    </div>
+
+    <div>
+      <a href="https://gist.github.com/JWHorner/4715cec804f84277a26ac3caab053bf4" target="_blank">FAQ & Terms</a>
+      <span class="floatRight">Log a request/issue: <a href="https://github.com/JWHorner/KinLog/issues" target="_blank">GitHub</a> | <a href="https://discord.gg/GgYpmhtz" target="_blank">Discord</a></span>
+    </div>
+    
+    <div class="disclaimer">
+      KinLog is a third-party extension and is not affiliated with Kindroid.ai in any way. Please use at your own risk.
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>
