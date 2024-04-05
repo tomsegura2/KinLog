@@ -27,7 +27,6 @@ function getCurrentChatSize() {
     if (chat === null) {
         return '0 kb';
     }
-    //let bytes = chat.length * 2;
     return `${(chat.length / 1024).toFixed(2)} KB`;
 }
 
