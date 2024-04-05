@@ -1,5 +1,4 @@
 // Global
-let currentChatId = '';
 let deletionWarnings = [ 'Clear Chat', 'Really?', 'You\'re 100% sure?' ];
 let deletionIndex = 0;
 
@@ -70,7 +69,6 @@ chrome.tabs.query({ 'active': true, 'lastFocusedWindow': true }, function (tabs)
             if (response !== undefined) {
                 let res = JSON.parse(response);
                 document.getElementById('currentchat').innerText = res[0];
-                currentChatId = res[1];
                 document.getElementById('currentchatSize').innerText = res[2];
                 if (res[2] === '0.00 KB') {
                     document.getElementById('buttons').style.display = 'none';
@@ -85,32 +83,3 @@ chrome.tabs.query({ 'active': true, 'lastFocusedWindow': true }, function (tabs)
     }
 
 });
-
-
-
-
-/* document.addEventListener('DOMContentLoaded', function () {
-    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-        chrome.tabs.sendMessage(tabs[0].id, { type: "requestConversationKeys" }, function (response) {
-
-            let keys = JSON.parse(response);
-            for (let i = 0; i < keys.length; i++) {
-                let opt = document.createElement('option');
-                opt.value = keys[i].substring(0, keys[i].indexOf('_'));
-                opt.innerHTML = opt.value;
-                document.getElementById('convos').append(opt);
-            }
-
-        });
-    });
-})
-
-let convosDropdown = document.getElementById('convos');
-
-convosDropdown.addEventListener('change', function () {
-    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-        chrome.tabs.sendMessage(tabs[0].id, { type: "changeConversation", payload: convosDropdown.value }, function (response) {
-        });
-    });
-})
- */

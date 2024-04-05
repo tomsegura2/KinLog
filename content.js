@@ -30,12 +30,10 @@ function getCurrentChatSize() {
     return `${(chat.length / 1024).toFixed(2)} KB`;
 }
 
-// 7
 function setSpeechSignatures(signatures) {
     localStorage.setItem(`${kinLogPrefix}${getCurrentChatId()}${kinLogSigsSuffix}`, JSON.stringify(signatures));
 }
 
-// 6
 function getConversation() {
     let conversation = JSON.parse(localStorage.getItem(`${kinLogPrefix}${getCurrentChatId()}`));
     if (!conversation) {
@@ -44,18 +42,15 @@ function getConversation() {
     return conversation;
 }
 
-// 8
 function setConversation(conversation) {
     localStorage.setItem(`${kinLogPrefix}${getCurrentChatId()}`, JSON.stringify(conversation));
 }
 
-// 4
 function createSignature(convo) {
     //TODO: Make MD5
     return `${convo[0]}_${convo[1]}`;
 }
 
-// 5
 function addSignature(convo) {
     let speechSignatures = getSpeechSignatures();
     if (speechSignatures.length > 10) {
@@ -65,7 +60,6 @@ function addSignature(convo) {
     setSpeechSignatures(speechSignatures);
 }
 
-// 1
 function getNameAndSpeechFromBubble(bubble) {
     let name = bubble.querySelectorAll('.chakra-text')[0].textContent;
     let speech = bubble.querySelectorAll('.chakra-text')[1].textContent;
@@ -75,7 +69,6 @@ function getNameAndSpeechFromBubble(bubble) {
     return undefined;
 }
 
-// 3
 function getSpeechSignatures() {
     let signatures = JSON.parse(localStorage.getItem(`${kinLogPrefix}${getCurrentChatId()}${kinLogSigsSuffix}`));
     if (!signatures) {
@@ -84,7 +77,6 @@ function getSpeechSignatures() {
     return signatures;
 }
 
-// 2
 function signatureExists(convo) {
     let speechSignatures = getSpeechSignatures();
     return speechSignatures.includes(createSignature(convo));
@@ -101,7 +93,6 @@ function checkSpeech() {
 
         if (convo && !signatureExists(convo)) {
             addSignature(convo);
-            console.log(`${convo[0]}: ${convo[1]}`);
             let conversation = getConversation();
             conversation.push(convo);
             setConversation(conversation);
@@ -175,8 +166,6 @@ function downloadJson() {
 }
 
 setInterval(() => {
-    //console.log(getCurrentChatId());
-    //console.log(getCurrentChatName());
     checkSpeech();
 }, 5000);
 
@@ -193,10 +182,6 @@ chrome.runtime.onMessage.addListener(
 
         } else if (request['type'] == 'downloadConversation') {
 
-            //console.log(request["fileType"]);
-            //console.log(JSON.stringify(getConversation()));
-            //download(getCurrentChatId(), getConversation());
-
             if (request['fileType'] == 'txt') {
                 downloadTxt();
             } else if (request['fileType'] == 'html') {
@@ -206,7 +191,6 @@ chrome.runtime.onMessage.addListener(
             }
 
         } else if (request['type'] == 'deleteConversation') {
-            console.log(`Deleting ${getCurrentChatName()} chat.`);
             setConversation([]);
             sendResponse(true);
         }
