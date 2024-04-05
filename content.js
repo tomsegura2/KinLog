@@ -47,7 +47,6 @@ function setConversation(conversation) {
 }
 
 function createSignature(convo) {
-    //TODO: Make MD5
     return `${convo[0]}_${convo[1]}`;
 }
 
