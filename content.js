@@ -62,7 +62,7 @@ function addSignature(convo) {
 
 function getNameAndSpeechFromBubble(bubble) {
     let name = bubble.querySelectorAll('.chakra-text')[0].textContent;
-    let speech = bubble.querySelectorAll('.chakra-text')[1].textContent;
+    let speech = bubble.querySelectorAll('.chakra-text')[1].innerHTML.replace(/<\/?span.*?>/gi, '*');
     if (name && speech) {
         return [name, speech];
     }
