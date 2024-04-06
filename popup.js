@@ -3,7 +3,7 @@ let deletionWarnings = [ 'Clear Chat', 'Really?', 'You\'re 100% sure?' ];
 let deletionIndex = 0;
 
 // Version
-document.getElementById('version').innerText = `v${chrome.runtime.getManifest().version}`;
+document.getElementById('version').innerText = `v${chrome.runtime.getManifest().version_name}`;
 
 // Delete button
 document.getElementById('delete').innerText = deletionWarnings[0];
