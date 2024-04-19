@@ -1,12 +1,24 @@
 // Global
-let deletionWarnings = [ 'Clear Chat', 'Really?', 'You\'re 100% sure?' ];
+let deletionWarnings = ['Clear Chat', 'Really?', 'You\'re 100% sure?'];
 let deletionIndex = 0;
+let currentChatId = undefined;
+let currentChatName = undefined;
 
 // Version
 document.getElementById('version').innerText = `v${chrome.runtime.getManifest().version_name}`;
 
 // Delete button
 document.getElementById('delete').innerText = deletionWarnings[0];
+
+function getCurrentTab(callback) {
+    let queryOptions = { active: true, lastFocusedWindow: true };
+    chrome.tabs.query(queryOptions, ([tab]) => {
+      if (chrome.runtime.lastError)
+      console.error(chrome.runtime.lastError);
+      // `tab` will either be a `tabs.Tab` instance or `undefined`.
+      callback(tab);
+    });
+  }
 
 function triggerDownload(fileType) {
     chrome.tabs.query({ 'active': true, 'lastFocusedWindow': true }, function (tabs) {
@@ -27,22 +39,11 @@ function downloadJson() {
 }
 
 function deleteClicked() {
-    let btn = document.getElementById('delete');
-    if (deletionIndex === deletionWarnings.length - 1) {
-        
-        //alert('TODO: Clear chat log');
-        chrome.tabs.query({ 'active': true, 'lastFocusedWindow': true }, function (tabs) {
-            chrome.tabs.sendMessage(tabs[0].id, { type: "deleteConversation" }, function (response) {
-                document.getElementById('currentchatSize').innerText = '0.00 KB';
-                document.getElementById('buttons').style.display = 'none';
-             });
-        });
+    location.href = `deleteConfirmation.html?id=${currentChatId}&name=${encodeURIComponent(currentChatName)}&referrer=popup.html`;
+}
 
-        deletionIndex = 0;
-        btn.innerText = deletionWarnings[0];
-    } else {
-        btn.innerText = deletionWarnings[++deletionIndex];
-    }
+function manageClicked() {
+    location.href = 'manage.html'
 }
 
 // Button events
@@ -51,6 +52,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('htmlDownload').addEventListener('click', downloadHtml);
     document.getElementById('jsonDownload').addEventListener('click', downloadJson);
     document.getElementById('delete').addEventListener('click', deleteClicked);
+    document.getElementById('manage').addEventListener('click', manageClicked);
 });
 
 chrome.tabs.query({ 'active': true, 'lastFocusedWindow': true }, function (tabs) {
@@ -65,9 +67,10 @@ chrome.tabs.query({ 'active': true, 'lastFocusedWindow': true }, function (tabs)
 
             // response = [ "Chat Name", "Chat ID", "Log Size" ]
 
-            //console.log(`response: ${response}`);
             if (response !== undefined) {
                 let res = JSON.parse(response);
+                currentChatId = res[1];
+                currentChatName = res[0];
                 document.getElementById('currentchat').innerText = res[0];
                 document.getElementById('currentchatSize').innerText = res[2];
                 if (res[2] === '0.00 KB') {
@@ -83,3 +86,4 @@ chrome.tabs.query({ 'active': true, 'lastFocusedWindow': true }, function (tabs)
     }
 
 });
+
