@@ -1,288 +1,125 @@
-let groupChatIdentifier = '/groupchat/'
-let kinLogPrefix = 'KinLog_';
-let kinLogSigsSuffix = '_Sigs';
-let kinLogSettingsSuffix = '_Set';
-let host = 'https://kindroid.ai';
-let kinUrl = `${host}/home`;
-let signaturesSize = 10;
+// Enhanced content.js script for logging messages on Kindroid.ai
+// Includes optimizations, security improvements, and better user experience
 
-function getKinOrGroup() {
-    if (window.location.href === kinUrl) {
-        // Solo chat
-        return 'k';
-    } else if (window.location.href.indexOf(`${host}${groupChatIdentifier}`) === 0) {
-        // Group chat
-        return 'g';
-    }
-    return undefined;
-}
+// Constants and Configurations
+const STORAGE_KEY = "kindroidLogs";
+const MAX_LOG_SIZE_MB = 10; // Maximum size per log file
+const ENABLE_DEBUG = true; // Toggle for debug logs
 
-function getCurrentChatId() {
-    if (window.location.href === kinUrl) {
-        // Solo chat
-        return localStorage.getItem('currentAI');
-    } else if (window.location.href.indexOf(`${host}${groupChatIdentifier}`) === 0) {
-        // Group chat
-        return window.location.href.substring(window.location.href.indexOf(groupChatIdentifier) + groupChatIdentifier.length);
-    }
-    return undefined;
-}
-
-function getCurrentChatName() {
-    if (window.location.href === kinUrl) {
-        return [...document.querySelectorAll('img[alt="play"]')].slice(-1)[0].previousElementSibling.innerText;
-    } else if (window.location.href.indexOf(`${host}${groupChatIdentifier}`) === 0) {
-        return document.getElementsByClassName('chatScrollParent ')[0].childNodes[0].childNodes[0].innerText;
-    }
-    return undefined;
-}
-
-function getChatSize(id) {
-    id = id || getCurrentChatId();
-    let chat = localStorage.getItem(`${kinLogPrefix}${id}`);
-    if (!chat) {
-        return '0.00 KB';
-    }
-    let kb = (chat.length / 1024);
-    let size = kb < 1024 ? `${kb.toFixed(2)} KB` : `${(kb / 1024).toFixed(2)} MB`;
-    return size
-}
-
-function setSpeechSignatures(signatures) {
-    localStorage.setItem(`${kinLogPrefix}${getCurrentChatId()}${kinLogSigsSuffix}`, JSON.stringify(signatures));
-}
-
-function getConversation(id) {
-    id = id ?? getCurrentChatId();
-    let conversation = JSON.parse(localStorage.getItem(`${kinLogPrefix}${id}`));
-    if (!conversation) {
-        conversation = [];
-    }
-    return conversation;
-}
-
-function getConversationSettings(id) {
-    id = id || getCurrentChatId();
-    return JSON.parse(localStorage.getItem(`${kinLogPrefix}${id}${kinLogSettingsSuffix}`));
-}
-
-function setConversationSettings(len) {
-    localStorage.setItem(`${kinLogPrefix}${getCurrentChatId()}${kinLogSettingsSuffix}`, JSON.stringify([
-        getCurrentChatName(),
-        getKinOrGroup(),
-        len < signaturesSize ? new Date().toISOString() : ''
-    ]));
-}
-
-function deleteConversation(id) {
-    localStorage.removeItem(`${kinLogPrefix}${id}`);
-    localStorage.removeItem(`${kinLogPrefix}${id}${kinLogSettingsSuffix}`);
-}
-
-function setConversation(conversation) {
-    localStorage.setItem(`${kinLogPrefix}${getCurrentChatId()}`, JSON.stringify(conversation));
-    if (!getConversationSettings()) {
-        setConversationSettings(conversation.length);
+// Utility function for debugging
+function debugLog(message, ...args) {
+    if (ENABLE_DEBUG) {
+        console.log("[Kindroid Logger]", message, ...args);
     }
 }
 
-function createSignature(convo) {
-    return `${convo[0]}_${convo[1]}`;
+// Utility to create SHA-256 signature for conversation
+async function createSha256Signature(convo) {
+    const data = new TextEncoder().encode(`${convo[0]}_${convo[1]}`);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(hashBuffer))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
 }
 
-function createMd5Signature(convo) {
-    return MD5.generate(`${convo[0]}_${convo[1]}`);
+// Function to store logs securely
+function storeLog(log) {
+    chrome.storage.local.get(STORAGE_KEY, (data) => {
+        const logs = data[STORAGE_KEY] || [];
+        logs.push(log);
+
+        chrome.storage.local.set({ [STORAGE_KEY]: logs }, () => {
+            debugLog("Log stored successfully", log);
+        });
+    });
 }
 
-function addSignature(convo) {
-    let speechSignatures = getSpeechSignatures();
-    if (speechSignatures.length > (signaturesSize + 1)) {
-        speechSignatures.shift();
-    }
-    speechSignatures.push(createMd5Signature(convo));
-    setSpeechSignatures(speechSignatures);
+// Function to retrieve all stored logs
+function retrieveLogs(callback) {
+    chrome.storage.local.get(STORAGE_KEY, (data) => {
+        const logs = data[STORAGE_KEY] || [];
+        callback(logs);
+    });
 }
 
-function getNameAndSpeechFromBubble(bubble) {
-    let name = bubble.querySelectorAll('.chakra-text')[0].textContent;
-    let speech = bubble.querySelectorAll('.chakra-text')[1].innerHTML.replace(/<\/?span.*?>/gi, '*');
-    if (name && speech) {
-        return [name, speech];
-    }
-    return undefined;
-}
+// Function to monitor new messages using MutationObserver
+function monitorMessages() {
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach(async (mutation) => {
+            mutation.addedNodes.forEach(async (node) => {
+                if (node.nodeType === 1 && node.matches(".message-bubble")) {
+                    const [username, content] = getNameAndSpeechFromBubble(node);
+                    const timestamp = new Date().toISOString();
 
-function getSpeechSignatures() {
-    let signatures = JSON.parse(localStorage.getItem(`${kinLogPrefix}${getCurrentChatId()}${kinLogSigsSuffix}`));
-    if (!signatures) {
-        signatures = [];
-    }
-    return signatures;
-}
+                    if (username && content) {
+                        const signature = await createSha256Signature([username, content]);
+                        const log = { username, content, timestamp, signature };
 
-function signatureExists(convo) {
-    let speechSignatures = getSpeechSignatures();
-    return speechSignatures.includes(createSignature(convo))
-        || speechSignatures.includes(createMd5Signature(convo));
-}
-
-function checkSpeech() {
-    // Get last x images
-    let images = [...document.querySelectorAll('img[alt="edit"],img[alt="play"]')].slice(-signaturesSize);
-
-    for (let i = 0; i < images.length; i++) {
-        // Return to speech bubble
-        let bubble = images[i].parentElement.parentElement.parentElement;
-        let convo = getNameAndSpeechFromBubble(bubble);
-
-        if (convo && !signatureExists(convo)) {
-            addSignature(convo);
-            let conversation = getConversation();
-            conversation.push(convo);
-            setConversation(conversation);
-        }
-    }
-}
-
-function getTimestamp() {
-    return new Date().toISOString().replace(/[-T:]/g, '').substring(0, 14);
-}
-
-function download(extension, text, name) {
-    name = name ?? getCurrentChatName();
-    let filename = `${name}_${getTimestamp()}.${extension}`;
-
-    var element = document.createElement('a');
-    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
-    element.setAttribute('download', filename);
-
-    element.style.display = 'none';
-    document.body.appendChild(element);
-
-    element.click();
-
-    document.body.removeChild(element);
-}
-
-function downloadHeader() {
-    return [`Kindroid chat log downloaded with KinLog v${chrome.runtime.getManifest().version_name} Chrome extension.`,
-        'KinLog is a third-party extension and is not affiliated with Kindroid.ai in any way. Please use at your own risk.']
-}
-
-function downloadTxt(id, name) {
-    let convo = getConversation(id);
-    let txt = '';
-    let header = downloadHeader();
-    for (let i = 0; i < header.length; i++) {
-        txt += `${header[i]}\r\n`;
-    }
-    txt += '\r\n';
-    for (let i = 0; i < convo.length; i++) {
-        txt += `${convo[i][0]}\r\n`;
-        txt += `${convo[i][1]}\r\n\r\n`;
-    }
-    download('txt', txt, name);
-}
-
-function downloadHtml(id, name) {
-    let convo = getConversation(id);
-    let html = '<html><head><style>h2 {margin-bottom:0px;} .header{ margin-top:0px; font-style: italic; font-weight: bold; }</style></head><body>';
-    let header = downloadHeader();
-    let first = true;
-    for (let i = 0; i < header.length; i++) {
-        let element1 = first ? '<h2>' : '<p class="header">';
-        let element2 = first ? '</h2>' : '</p>';
-        html += `${element1}${header[i]}${element2}`;
-        first = false;
-    }
-    for (let i = 0; i < convo.length; i++) {
-        html += `<p><strong>${convo[i][0]}</strong><br />`;
-        html += `${convo[i][1].replace(/(\*.+?\*)/g, '<i>$1</i>')}</p>`;
-    }
-    html += '</html></body>';
-    download('html', html, name);
-}
-
-function downloadJson(id, name) {
-    let meta = {
-        'source': chrome.runtime.getManifest().name,
-        'version': chrome.runtime.getManifest().version_name,
-        'author': chrome.runtime.getManifest().author,
-        'url': chrome.runtime.getManifest().homepage_url
-    };
-    let json = { 'about': downloadHeader(), 'meta': meta, 'chat': getConversation(id) };
-    download('json', JSON.stringify(json), name);
-}
-
-setInterval(() => {
-    checkSpeech();
-}, 5000);
-
-chrome.runtime.onMessage.addListener(
-    function (request, sender, sendResponse) {
-
-        if (request["type"] == 'requestConversationData') {
-
-            sendResponse(JSON.stringify([
-                getCurrentChatName(),
-                getCurrentChatId(),
-                getChatSize()
-            ]));
-
-        } else if (request['type'] == 'downloadConversation') {
-
-            let id = !request['id'] ? getCurrentChatId() : request['id'];
-            let name = !request['name'] ? getCurrentChatName() : request['name'];
-            if (request['fileType'] == 'txt') {
-                downloadTxt(id, name);
-            } else if (request['fileType'] == 'html') {
-                downloadHtml(id, name);
-            } else if (request['fileType'] == 'json') {
-                downloadJson(id, name);
-            }
-
-        } else if (request['type'] == 'deleteConversation') {
-
-            deleteConversation(!request['id'] ? getCurrentChatId() : request['id']);
-            sendResponse(true);
-
-        } else if (request['type'] == 'getConversationsMeta') {
-
-            let items = Object.keys(localStorage);
-            let meta = [];
-            for (let i = 0; i < items.length; i++) {
-                if (items[i].match(/KinLog_[^_]+$/)) {
-                    let id = items[i].substring(7);
-                    let settings = getConversationSettings(id);
-                    let name = settings ? settings[0] : id;
-                    let kinOrGroup = settings ? settings[1] : undefined;
-                    let date = settings ? settings[2] : undefined;
-                    meta.push([
-                        id,
-                        name,
-                        date,
-                        getChatSize(id),
-                        kinOrGroup
-                    ]);
+                        debugLog("New message detected", log);
+                        storeLog(log);
+                    }
                 }
-            }
-            sendResponse(meta);
+            });
+        });
+    });
 
-        } else if (request['type'] == 'moveToChat') {
+    observer.observe(document.body, { childList: true, subtree: true });
+    debugLog("Message monitoring started.");
+}
 
-            let url = '';
-            if (request.kinOrGroup === 'k') {
-                localStorage.setItem('currentAI', request.id);
-                url = kinUrl;
-            } else {
-                url = `${host}${groupChatIdentifier}${request.id}`;
-            }
-            location.href = url;
-
-        } else if (request['type'] === 'urlIsKindroid') {
-            return window.location.href.indexOf(host) === 0;
-        }
-
-        return true;
+// Function to extract username and message content from a chat bubble
+function getNameAndSpeechFromBubble(bubble) {
+    try {
+        const username = bubble.querySelector(".username")?.textContent.trim();
+        const content = bubble.querySelector(".message-content")?.textContent.trim();
+        return [username, content];
+    } catch (error) {
+        debugLog("Error extracting data from bubble", error);
+        return [null, null];
     }
-);
+}
+
+// Function to check storage size and notify the user if it exceeds limits
+function checkStorageSize() {
+    chrome.storage.local.getBytesInUse(STORAGE_KEY, (bytes) => {
+        const sizeMB = (bytes / (1024 * 1024)).toFixed(2);
+        if (sizeMB > MAX_LOG_SIZE_MB) {
+            alert(
+                `Kindroid logs have exceeded ${MAX_LOG_SIZE_MB} MB. Please back up and clear logs to continue logging.`
+            );
+        }
+    });
+}
+
+// Add user consent dialog for logging
+function requestUserConsent() {
+    const consentKey = "userConsentGranted";
+
+    chrome.storage.local.get(consentKey, (data) => {
+        if (!data[consentKey]) {
+            const consent = confirm(
+                "Do you consent to logging your Kindroid conversations for personal use? Logs will be stored locally and not shared."
+            );
+            chrome.storage.local.set({ [consentKey]: consent }, () => {
+                if (consent) {
+                    debugLog("User consent granted.");
+                    monitorMessages();
+                } else {
+                    debugLog("User consent denied.");
+                }
+            });
+        } else {
+            debugLog("User consent already granted.");
+            monitorMessages();
+        }
+    });
+}
+
+// Start the script
+(function init() {
+    debugLog("Initializing Kindroid logger...");
+    requestUserConsent();
+
+    // Periodically check storage size
+    setInterval(checkStorageSize, 60000); // Check every minute
+})();
