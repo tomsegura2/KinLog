@@ -1,128 +1,123 @@
-function returnToPopup() {
-    chrome.action.setPopup({ popup: "popup.html" });
-    location.href = 'popup.html'
-}
+// manage.js: Enhanced log management for Kindroid.ai
+const STORAGE_KEY = "kindroidLogs";
+const MAX_LOG_SIZE_MB = 10; // Maximum size for all logs
+const ENABLE_DEBUG = true; // Toggle for debug logs
 
-chrome.tabs.query({ 'active': true, 'lastFocusedWindow': true }, function (tabs) {
-    if (tabs[0].url.indexOf('https://kindroid.ai/') !== 0) {
-        returnToPopup();
+// Utility function for debugging
+function debugLog(message, ...args) {
+    if (ENABLE_DEBUG) {
+        console.log("[Kindroid Log Manager]", message, ...args);
     }
-});
-
-// Version
-document.getElementById('version').innerText = `v${chrome.runtime.getManifest().version_name}`;
-
-// Buttons
-document.getElementById('cancel').addEventListener('click', returnToPopup);
-
-function view(id, kinOrGroup) {
-    chrome.tabs.query({ 'active': true, 'lastFocusedWindow': true }, function (tabs) {
-        chrome.tabs.sendMessage(tabs[0].id, { type: "moveToChat", id: id, kinOrGroup: kinOrGroup }, function (response) { });
-    });
-    chrome.action.setPopup({ popup: "popup.html" });
-    window.close();
 }
 
-function deleteChat(id, name) {
-    location.href = `deleteConfirmation.html?id=${id}&name=${encodeURIComponent(name)}&referrer=manage.html`;
+// Utility to format log size in MB
+function formatSize(bytes) {
+    return (bytes / (1024 * 1024)).toFixed(2) + " MB";
 }
 
-function createButton(image, event, tooltip) {
-    div = document.createElement('div');
-    div.className = 'tooltip'
-    img = document.createElement('img');
-    img.setAttribute('src', image)
-    img.className = 'tableButton';
-    div.addEventListener('click', () => {
-        event();
-    });
-    div.appendChild(img)
-    span = document.createElement('span');
-    span.className = 'tooltiptext';
-    span.innerText = tooltip;
-    div.appendChild(span)
-    return div;
-}
-
-function download(id, fileType, name) {
-    chrome.tabs.query({ 'active': true, 'lastFocusedWindow': true }, function (tabs) {
-        chrome.tabs.sendMessage(tabs[0].id, { type: "downloadConversation", fileType: fileType, id: id, name: name }, function (response) { });
+// Function to retrieve logs from chrome.storage
+function retrieveLogs(callback) {
+    chrome.storage.local.get(STORAGE_KEY, (data) => {
+        const logs = data[STORAGE_KEY] || [];
+        callback(logs);
     });
 }
 
-chrome.tabs.query({ 'active': true, 'lastFocusedWindow': true }, function (tabs) {
-    chrome.tabs.sendMessage(tabs[0].id, { type: "getConversationsMeta" }, function (response) {
+// Function to clear all logs
+function clearLogs() {
+    chrome.storage.local.remove(STORAGE_KEY, () => {
+        debugLog("All logs cleared.");
+        alert("All Kindroid logs have been cleared.");
+        refreshLogView();
+    });
+}
 
-        if (response) {
+// Function to delete selected logs
+function deleteSelectedLogs(selectedIndices) {
+    retrieveLogs((logs) => {
+        const filteredLogs = logs.filter((_, index) => !selectedIndices.includes(index));
+        chrome.storage.local.set({ [STORAGE_KEY]: filteredLogs }, () => {
+            debugLog("Selected logs deleted.", selectedIndices);
+            alert("Selected logs have been deleted.");
+            refreshLogView();
+        });
+    });
+}
 
-            // id, name, date, getChatSize(id), kinOrGroup
+// Function to export logs to a file
+function exportLogs() {
+    retrieveLogs((logs) => {
+        const logBlob = new Blob([JSON.stringify(logs, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(logBlob);
 
-            const body = document.body,
-                tbl = document.createElement('table');
-            tbl.className = 'manageTable';
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `KindroidLogs_${new Date().toISOString()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
 
-            const tr = tbl.insertRow();
-            let td = tr.insertCell();
-            td.className = 'manageHeaderCell';
-            td.appendChild(document.createTextNode('Chat'));
-            td = tr.insertCell();
-            td.className = 'manageHeaderCell';
-            td.appendChild(document.createTextNode('Started'));
-            td = tr.insertCell();
-            td.className = 'manageHeaderCell';
-            td.appendChild(document.createTextNode('Size'));
-            td = tr.insertCell();
+        debugLog("Logs exported.");
+        alert("Logs have been exported.");
+    });
+}
 
+// Function to refresh the log view in the UI
+function refreshLogView() {
+    const logContainer = document.getElementById("logContainer");
+    if (!logContainer) return;
 
-            for (let i = 0; i < response.length; i++) {
-                const tr = tbl.insertRow();
-                let td = tr.insertCell();
-                // Name
-                td.className = 'cellPadRight';
-                td.appendChild(document.createTextNode(response[i][1]));
-                td = tr.insertCell();
-                // Date
-                td.className = 'cellPadRight';
-                td.appendChild(document.createTextNode(response[i][2] ? new Date(response[i][2]).toLocaleDateString() : ''));
-                td = tr.insertCell();
-                // Size
-                td.className = 'cellPadRight';
-                td.appendChild(document.createTextNode(response[i][3]));
-                td = tr.insertCell();
+    retrieveLogs((logs) => {
+        logContainer.innerHTML = ""; // Clear existing logs
+        logs.forEach((log, index) => {
+            const logEntry = document.createElement("div");
+            logEntry.className = "log-entry";
 
-                // View
-                let evnt = function () { view(response[i][0], response[i][4]) };
-                td.appendChild(createButton('images/view.png', evnt, 'Switch chat'));
+            const logText = document.createElement("pre");
+            logText.textContent = JSON.stringify(log, null, 2);
 
-                // Download text
-                evnt = function () { 
-                    download(response[i][0], 'txt', response[i][1]);
-                 };
-                td.appendChild(createButton('images/text.png', evnt, 'Download plain text'));
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.className = "log-checkbox";
+            checkbox.dataset.index = index;
 
-                // Download HTML
-                evnt = function () { 
-                    download(response[i][0], 'html', response[i][1]);
-                };
-                td.appendChild(createButton('images/html.png', evnt, 'Download HTML'));
+            logEntry.appendChild(checkbox);
+            logEntry.appendChild(logText);
+            logContainer.appendChild(logEntry);
+        });
 
-                // Download JSON
-                evnt = function () { 
-                    download(response[i][0], 'json', response[i][1]);
-                };
-                td.appendChild(createButton('images/json.png', evnt, 'Download JSON'));
+        debugLog("Log view refreshed.", logs);
+    });
+}
 
-                // Delete
-                evnt = function () { 
-                    deleteChat(response[i][0], response[i][1]) 
-                };
-                td.appendChild(createButton('images/delete.png', evnt, 'Delete chat log'));
-            }
-
-            document.getElementById('table').appendChild(tbl);
-
+// Function to check storage usage and alert if nearing limits
+function checkStorageUsage() {
+    chrome.storage.local.getBytesInUse(STORAGE_KEY, (bytes) => {
+        const sizeMB = formatSize(bytes);
+        if (bytes > MAX_LOG_SIZE_MB * 1024 * 1024) {
+            alert(`Warning: Log storage exceeds ${MAX_LOG_SIZE_MB} MB. Please export or clear logs.`);
         }
-
+        debugLog("Current log storage size:", sizeMB);
     });
+}
+
+// Event Listeners for UI Buttons
+document.addEventListener("DOMContentLoaded", () => {
+    const clearButton = document.getElementById("clearLogs");
+    const exportButton = document.getElementById("exportLogs");
+    const deleteSelectedButton = document.getElementById("deleteSelectedLogs");
+
+    clearButton?.addEventListener("click", clearLogs);
+    exportButton?.addEventListener("click", exportLogs);
+    deleteSelectedButton?.addEventListener("click", () => {
+        const selectedCheckboxes = Array.from(document.querySelectorAll(".log-checkbox:checked"));
+        const selectedIndices = selectedCheckboxes.map((checkbox) => parseInt(checkbox.dataset.index, 10));
+        deleteSelectedLogs(selectedIndices);
+    });
+
+    // Refresh logs on page load
+    refreshLogView();
+
+    // Check storage usage periodically
+    setInterval(checkStorageUsage, 60000); // Check every minute
 });
 
