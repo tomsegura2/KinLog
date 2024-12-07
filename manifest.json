@@ -1,31 +1,45 @@
 {
-    "manifest_version": 3,
-    "name": "KinLog",
-    "description": "Allows the saving and downloading of Kindroid.ai chats.",
-    "author": "john.horner@outlook.com",
-    "homepage_url": "https://github.com/JWHorner/KinLog",
-    "version": "1.1",
-    "version_name": "1.1",
-    "icons": {
-        "16" : "images/icon_16.png",
-        "32" : "images/icon_32.png",
-        "48" : "images/icon_48.png",
-        "128" : "images/icon_128.png"
-    },
-    "permissions":[ 
-        "tabs",
-        "unlimitedStorage"
-    ],
-    "action": {
-        "default_popup": "popup.html",
-        "default_icon": "images/icon_512.png"
-    },
-    "content_scripts": [
-        {
-            "js": [ "md5.min.js", "content.js" ],
-            "matches": [
-                "https://kindroid.ai/*"
-            ]
-        }
-    ]
+  "manifest_version": 3,
+  "name": "Kindroid Logger",
+  "description": "Logs and manages conversations on Kindroid.ai securely and efficiently.",
+  "version": "2.0.0",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": ["https://kindroid.ai/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://kindroid.ai/*"],
+      "js": ["content.js"],
+      "css": ["styles.css"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/*", "popup.css"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "commands": {
+    "clear-logs": {
+      "description": "Clear all logs",
+      "suggested_key": {
+        "default": "Ctrl+Shift+C"
+      }
+    }
+  }
 }
